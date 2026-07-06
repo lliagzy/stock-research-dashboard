@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>股票投研看板 · 开源静态演示版</title>
+  <link rel="stylesheet" href="./styles.css" />
+  <script src="./echarts.min.js"></script>
+</head>
+<body>
+  <!-- 侧边栏 -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="logo">投</div>
+      <div class="title">投研看板<small>STOCK RESEARCH</small></div>
+    </div>
+
+    <div class="search-box">
+      <input id="search" class="search" type="text" placeholder="搜代码 / 名称，如 600519、贵州茅台、比亚迪" autocomplete="off" />
+      <div id="suggest" class="suggest" style="display:none"></div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">自选股</div>
+      <div id="watchlist" class="watchlist"></div>
+    </div>
+
+    <div class="nav-section">
+      <div class="nav-title">板块</div>
+      <div id="sectorNav" class="sector-nav"></div>
+    </div>
+
+    <div class="side-foot">
+      <span id="srcBadge" class="badge sample">—</span>
+      <button id="themeBtn" class="theme-btn" title="切换主题">🌓</button>
+    </div>
+  </aside>
+
+  <!-- 主区 -->
+  <main class="main">
+    <div class="demo-banner">
+      <b>开源静态演示版</b> · 数据为构建快照，不含实时刷新。完整全市场搜索 + 实时行情 + 每日自动刷新，请按仓库 README 用 Docker 自托管部署。
+    </div>
+
+    <div class="topbar">
+      <div class="crumb">个股研究 · <b id="crumbName">—</b></div>
+      <div class="topbar-right">
+        <div class="refresh-info">
+          <span>数据截至 <b id="updatedAt">—</b></span>
+          <span>上次刷新 <b id="lastRefresh">—</b></span>
+          <span class="muted" id="refreshSched">静态快照</span>
+        </div>
+      </div>
+    </div>
+
+    <section id="detailSection" class="detail"></section>
+
+    <section class="block">
+      <div class="block-head">
+        <h2>板块近期表现</h2>
+        <span class="muted">点击板块查看指数走势与成分股</span>
+      </div>
+      <div class="panel"><div id="sectorBar"></div></div>
+      <div class="panel" style="margin-top:16px"><table id="sectorTable" class="grid"></table></div>
+      <div id="sectorDetail" class="sector-detail-wrap" style="display:none"></div>
+    </section>
+
+    <footer class="disclaimer">
+      <b>风险提示：</b>本看板为面向个人投资者的研究辅助工具，数据为 AkShare 等公开源整理，可能存在延迟或偏差。
+      所有内容仅供研究参考，<b>不构成任何投资建议</b>。市场有风险，投资需谨慎。
+    </footer>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>

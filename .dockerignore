@@ -1,0 +1,26 @@
+# 构建镜像时排除，避免把本机运行时/敏感文件打进镜像
+.git
+.gitignore
+.venv
+venv
+env
+__pycache__
+*.pyc
+*.egg-info
+
+# 运行时数据库与生成物（容器内由 build.py 重建；保留种子文件）
+data/app.db
+data/portfolio.json
+data/sectors.json
+data/sector_map.json
+data/stocks.json
+!data/a_stocks.json
+static-site/data-static
+
+# 部署相关（不应进入应用镜像）
+deploy/certbot
+*.log
+.env
+.DS_Store
+.idea
+.vscode

@@ -1,0 +1,34 @@
+# ============================================================
+# 股票投研看板 · .gitignore
+# ============================================================
+
+# 运行时数据库与生成物（保留全市场种子文件）
+data/*
+!data/a_stocks.json
+
+# export_static.py 生成的静态快照，按需重建
+static-site/data-static/
+
+# 日志
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+.venv/
+venv/
+env/
+
+# 环境变量（含密钥，切勿提交）
+.env
+.env.*
+
+# 系统 / 编辑器
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

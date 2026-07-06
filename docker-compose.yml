@@ -1,0 +1,26 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8011:8011"
+    environment:
+      # 留空使用默认 SQLite；如需 PostgreSQL，取消下方 db 服务注释并设置：
+      # DATABASE_URL=postgresql+psycopg2://stock:stock@db:5432/stockdb
+      - DATABASE_URL=${DATABASE_URL:-}
+    volumes:
+      - ./data:/app/data        # 持久化 SQLite 数据库
+    restart: unless-stopped
+
+  # 可选：使用 PostgreSQL 持久化（取消注释后，把上面 web 的 DATABASE_URL 设为对应地址）
+  # db:
+  #   image: postgres:16
+  #   environment:
+  #     POSTGRES_USER: stock
+  #     POSTGRES_PASSWORD: stock
+  #     POSTGRES_DB: stockdb
+  #   volumes:
+  #     - pgdata:/var/lib/postgresql/data
+  #   restart: unless-stopped
+
+# volumes:
+#   pgdata:
