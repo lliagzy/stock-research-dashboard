@@ -45,6 +45,126 @@ async function api(path) {
   return r.json();
 }
 
+/* ===== 实时行情（客户端直连腾讯财经，无需后端） ===== */
+const LIVE_API = 'https://qt.gtimg.cn/q=';
+let liveTimer = null, watchTimer = null, secTimer = null;
+
+function codeToSymbol(code) {
+  code = (code || '').toString();
+  if (/^9/.test(code) || /^6/.test(code)) return 'sh' + code;       // 沪市（含科创板 68）
+  if (/^(00|30)/.test(code) || /^3/.test(code)) return 'sz' + code; // 深市（含创业板）
+  if (/^(8|4)/.test(code)) return 'bj' + code;                      // 北交所
+  return 'sh' + code;
+}
+
+function isTradingNow() {
+  const d = new Date(), day = d.getDay();
+  if (day === 0 || day === 6) return false;
+  const hm = d.getHours() * 60 + d.getMinutes();
+  return (hm >= 9 * 60 + 15 && hm <= 11 * 60 + 30) || (hm >= 13 * 60 && hm <= 15 * 60);
+}
+
+// 批量拉取实时行情，返回 { code: {price,prevClose,open,high,low,change,changePct,time,name} }
+async function fetchLiveQuotes(codes) {
+  if (!codes || !codes.length) return {};
+  const url = LIVE_API + codes.map(codeToSymbol).join(',');
+  const res = await fetch(url, { cache: 'no-store' });
+  const text = new TextDecoder('gbk').decode(await res.arrayBuffer());
+  const out = {};
+  text.split(';').forEach(seg => {
+    const m = seg.match(/v_(\w+)="([^"]*)"/);
+    if (!m) return;
+    const f = m[2].split('~');
+    if (f.length < 35) return;
+    const code = f[2];
+    out[code] = {
+      price: parseFloat(f[3]), prevClose: parseFloat(f[4]), open: parseFloat(f[5]),
+      high: parseFloat(f[33]), low: parseFloat(f[34]),
+      change: parseFloat(f[31]), changePct: parseFloat(f[32]),
+      time: f[30], name: f[1], symbol: m[1]
+    };
+  });
+  return out;
+}
+
+function setLiveDot(on) {
+  const d = $('liveDot'); if (!d) return;
+  d.classList.toggle('on', !!on);
+  d.title = on ? '实时行情已连接（腾讯财经）' : '实时行情连接中断，将自动重试';
+}
+
+function paintChange(elPrice, elChg, q) {
+  if (!q || isNaN(q.price)) return;
+  const c = q.change >= 0 ? UP : DOWN;
+  if (elPrice) { elPrice.textContent = q.price.toFixed(2); elPrice.style.color = c; }
+  if (elChg) {
+    elChg.textContent = (q.change >= 0 ? '+' : '') + q.change.toFixed(2) + '  ' + (q.changePct >= 0 ? '+' : '') + q.changePct.toFixed(2) + '%';
+    elChg.style.color = c;
+  }
+}
+
+function fmtHMS(t) {
+  if (t && t.length >= 14) return t.slice(8, 10) + ':' + t.slice(10, 12) + ':' + t.slice(12, 14);
+  return new Date().toLocaleTimeString('zh-CN', { hour12: false });
+}
+
+function stopLive() { if (liveTimer) { clearInterval(liveTimer); liveTimer = null; } }
+
+function startLiveDetail(code) {
+  stopLive();
+  const tick = async () => {
+    try {
+      const q = await fetchLiveQuotes([code]); const d = q[code];
+      if (d) {
+        paintChange($('dPx'), $('dChg'), d);
+        const t = $('dLive');
+        if (t) t.innerHTML = `<span>今开 <b>${d.open.toFixed(2)}</b></span><span>最高 <b>${d.high.toFixed(2)}</b></span><span>最低 <b>${d.low.toFixed(2)}</b></span><span>昨收 <b>${d.prevClose.toFixed(2)}</b></span>`;
+        const lr = $('lastRefresh'); if (lr) lr.textContent = fmtHMS(d.time);
+        setLiveDot(true);
+      }
+    } catch (e) { setLiveDot(false); }
+  };
+  tick();
+  liveTimer = setInterval(() => { if (!document.hidden) tick(); }, isTradingNow() ? 10000 : 30000);
+}
+
+function startLiveWatchlist(list) {
+  const codes = (list || []).map(s => s.code);
+  if (!codes.length || watchTimer) return;
+  const tick = async () => {
+    try {
+      const q = await fetchLiveQuotes(codes);
+      list.forEach(s => {
+        const el = $('wl-' + s.code); if (!el) return;
+        paintChange(el.querySelector('.wl-price'), el.querySelector('.wl-chg'), q[s.code]);
+      });
+      setLiveDot(true);
+    } catch (e) { setLiveDot(false); }
+  };
+  tick();
+  watchTimer = setInterval(() => { if (!document.hidden) tick(); }, isTradingNow() ? 12000 : 30000);
+}
+
+function startLiveSector(codes) {
+  if (secTimer) { clearInterval(secTimer); secTimer = null; }
+  if (!codes || !codes.length) return;
+  const tick = async () => {
+    try {
+      const q = await fetchLiveQuotes(codes);
+      codes.forEach(code => {
+        const d = q[code]; if (!d) return;
+        const p = $('secc-' + code + '-p'), c = $('secc-' + code + '-c');
+        if (!p || !c) return;
+        const col = d.change >= 0 ? UP : DOWN;
+        p.textContent = d.price.toFixed(2); p.style.color = col;
+        c.textContent = (d.changePct >= 0 ? '+' : '') + d.changePct.toFixed(2) + '%'; c.style.color = col;
+      });
+    } catch (e) {}
+  };
+  tick();
+  secTimer = setInterval(() => { if (!document.hidden) tick(); }, isTradingNow() ? 12000 : 30000);
+}
+
 /* ---------------- 主题 ---------------- */
 function applyTheme(t) {
   document.body.classList.toggle('dark', t === 'dark');
@@ -67,12 +187,10 @@ async function init() {
     $('detailSection').innerHTML = '<div class="empty">数据文件未就绪，请先运行 python export_static.py 生成 data-static/</div>';
     return;
   }
-  const live = PORT.data_source === 'akshare';
   const badge = $('srcBadge');
-  badge.textContent = live ? '实时数据 · AkShare' : '样例数据';
-  badge.className = 'badge ' + (live ? 'live' : 'sample');
+  badge.textContent = '实时行情 · 腾讯财经';
+  badge.className = 'badge live';
   $('updatedAt').textContent = PORT.updated_at || '—';
-  $('lastRefresh').textContent = PORT.static ? '静态快照' : (PORT.last_refresh || '—');
 
   // 静态演示版无后端刷新，隐藏刷新按钮
   const rb = $('refreshBtn');
@@ -82,6 +200,7 @@ async function init() {
   try { ALL_STOCKS = (await api(STATIC_BASE + '/stocks.json')).stocks; } catch (e) { ALL_STOCKS = []; }
 
   renderWatchlist(PORT.watchlist || []);
+  startLiveWatchlist(PORT.watchlist || []);
   if (PORT.featured) { currentDetail = PORT.featured; renderDetail(PORT.featured); }
   bindSearch();
   loadSectors();
@@ -137,8 +256,14 @@ async function onSearch() {
   const box = $('suggest');
   if (!res.length) { box.style.display = 'none'; return; }
   box.innerHTML = res.map(s => `<div class="sg" onclick="pickSearch('${s.code}','${s.name.replace(/'/g, "\\'")}')">
-    <span class="sg-name">${s.name}</span><span class="sg-code">${s.code}</span><span class="sg-sec">${s.sector || ''}</span></div>`).join('');
+    <span class="sg-name">${s.name}</span><span class="sg-code">${s.code}</span><span class="sg-chg" id="sgc-${s.code}"></span><span class="sg-sec">${s.sector || ''}</span></div>`).join('');
   box.style.display = 'block';
+  fetchLiveQuotes(res.map(r => r.code)).then(q => res.forEach(s => {
+    const el = $('sgc-' + s.code); if (!el || !q[s.code]) return;
+    const d = q[s.code];
+    el.textContent = (d.changePct >= 0 ? '+' : '') + d.changePct.toFixed(2) + '%';
+    el.style.color = d.change >= 0 ? UP : DOWN;
+  })).catch(() => {});
 }
 function pickSearch(code, name) {
   $('search').value = name;
@@ -187,9 +312,10 @@ function renderDetail(d) {
       </div>
       <div class="dh-right">
         <div class="d-price">
-          <div class="d-px" style="color:${c}">${fmt(d.price)}</div>
-          <div class="d-chg" style="color:${c}">${d.change_pct == null ? '—' : sign(d.change_pct) + fmt(d.change_pct) + '%'}</div>
+          <div class="d-px" id="dPx" style="color:${c}">${fmt(d.price)}</div>
+          <div class="d-chg" id="dChg" style="color:${c}">${d.change_pct == null ? '—' : sign(d.change_pct) + fmt(d.change_pct) + '%'}</div>
         </div>
+        <div class="d-live" id="dLive"></div>
         <div class="chips">
           <div class="chip"><div class="k">市盈率(TTM)</div><div class="v">${fmt(d.pe_ttm)}</div></div>
           <div class="chip"><div class="k">市净率</div><div class="v">${fmt(d.pb)}</div></div>
@@ -238,6 +364,7 @@ function renderDetail(d) {
   drawGauge(pct);
   drawPE(d.pe_history || []);
   setActiveWatchlist(d.code);
+  startLiveDetail(d.code);
 }
 
 function drawKline(ohlc) {
@@ -378,9 +505,12 @@ async function openSector(name) {
     const cons = await api(STATIC_BASE + '/sectors/' + encodeURIComponent(name) + '.json');
     const rows = cons.map(m => `<tr>
       <td><a class="lk" onclick="selectStock('${m.code}','${m.name}')">${m.name}</a> <span class="muted-cell">${m.code}</span></td>
+      <td id="secc-${m.code}-p" class="mono">—</td>
+      <td id="secc-${m.code}-c" class="mono">—</td>
       <td style="color:${m.ret60 >= 0 ? UP : DOWN}">${m.ret60 == null ? '—' : sign(m.ret60) + fmt(m.ret60) + '%'}</td>
       <td>${fmt(m.pe)}</td><td>${fmt(m.pb)}</td></tr>`).join('');
-    $('secCons').innerHTML = `<table class="grid"><thead><tr><th>成分股</th><th>60日收益</th><th>PE</th><th>PB</th></tr></thead><tbody>${rows || '<tr><td colspan="4" class="muted-cell">无成分股数据</td></tr>'}</tbody></table>`;
+    $('secCons').innerHTML = `<table class="grid"><thead><tr><th>成分股</th><th>现价</th><th>涨跌%</th><th>60日收益</th><th>PE</th><th>PB</th></tr></thead><tbody>${rows || '<tr><td colspan="6" class="muted-cell">无成分股数据</td></tr>'}</tbody></table>`;
+    startLiveSector(cons.map(m => m.code));
   } catch (e) {
     $('secCons').innerHTML = '<div class="empty">加载失败</div>';
   }
