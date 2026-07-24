@@ -20,6 +20,13 @@
       <div id="suggest" class="suggest" style="display:none"></div>
     </div>
 
+    <div class="nav">
+      <div class="nav-item active" data-view="market"><span class="ic">📊</span>市场看板</div>
+      <div class="nav-item" data-view="detail"><span class="ic">🔍</span>个股详情</div>
+      <div class="nav-item" data-view="ai"><span class="ic">🤖</span>AI 问答</div>
+      <div class="nav-item" data-view="portfolio"><span class="ic">🩺</span>组合诊断</div>
+    </div>
+
     <div class="nav-section">
       <div class="nav-title">自选股</div>
       <div id="watchlist" class="watchlist"></div>
@@ -43,7 +50,7 @@
     </div>
 
     <div class="topbar">
-      <div class="crumb">个股研究 · <b id="crumbName">—</b></div>
+      <div class="crumb"><span id="crumbView">市场看板</span> · <b id="crumbName">—</b></div>
       <div class="topbar-right">
         <div class="refresh-info">
           <span id="liveDot" class="live-dot">● 实时</span>
@@ -53,17 +60,28 @@
       </div>
     </div>
 
-    <section id="detailSection" class="detail"></section>
+    <!-- 市场看板 -->
+    <section id="viewMarket" class="view active"></section>
 
-    <section class="block">
-      <div class="block-head">
-        <h2>板块近期表现</h2>
-        <span class="muted">点击板块查看指数走势与成分股</span>
-      </div>
-      <div class="panel"><div id="sectorBar"></div></div>
-      <div class="panel" style="margin-top:16px"><table id="sectorTable" class="grid"></table></div>
-      <div id="sectorDetail" class="sector-detail-wrap" style="display:none"></div>
+    <!-- 个股详情 -->
+    <section id="viewDetail" class="view">
+      <div id="detailSection" class="detail"></div>
     </section>
+
+    <!-- AI 问答 -->
+    <section id="viewAI" class="view">
+      <div class="ai-wrap">
+        <div class="ai-input-row">
+          <input id="aiInput" class="ai-input" type="text" placeholder="问问看，例如：贵州茅台现在估值贵吗？ / 比亚迪近期表现如何？ / 今天大盘怎么样？" autocomplete="off" />
+          <button id="aiSend" class="ai-send">发送</button>
+        </div>
+        <div class="ai-chips" id="aiChips"></div>
+        <div id="aiAnswer" class="ai-answer"></div>
+      </div>
+    </section>
+
+    <!-- 组合诊断 -->
+    <section id="viewPortfolio" class="view"></section>
 
     <footer class="disclaimer">
       <b>风险提示：</b>本看板为面向个人投资者的研究辅助工具，数据为 AkShare 等公开源整理，可能存在延迟或偏差。
